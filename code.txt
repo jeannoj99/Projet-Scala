@@ -1,29 +1,28 @@
-/* Étape 1 : Définir un format pour les seuils de couleur */
-proc format;
-  value colorfmt
-    low - <0.05 = 'green'
-    0.05 - 0.10 = 'orange'
-    0.10<-high = 'red';
-run;
 
-/* Étape 2 : Définition du template pour la heatmap avec variables dynamiques */
+/* Étape 1 : Définition du template avec RANGEATTRMAP basé sur modèle fourni */
 proc template;
   define statgraph heatmap_template;
     dynamic _X _Y _COLOR;
     begingraph;
+      rangeattrmap name="ColorRange";
+        range min - <0.05 / rangecolor=green;
+        range 0.05 - 0.10 / rangecolor=orange;
+        range >0.10 - max / rangecolor=red;
+      endrangeattrmap;
+      rangeattrvar var=_COLOR attrvar=ColorVar attrmap="ColorRange";
+
       entrytitle "Résultats des tests de Welch d'hétérogénéité inter-classe";
       layout overlay / xaxisopts=(discreteopts=(tickvaluefitpolicy=rotate))
                        yaxisopts=(reverse=true discreteopts=(tickvaluefitpolicy=extract));
-        heatmapparm x=_X y=_Y colorresponse=_COLOR /
-          colormodel=(green orange red)
-          colorresponseformat=colorfmt.
+        heatmapparm x=_X y=_Y colorresponse=ColorVar
           outlineattrs=(color=black thickness=1px);
+        textplot x=_X y=_Y text=_COLOR / textattrs=(size=4pt);
       endlayout;
     endgraph;
   end;
 run;
 
-/* Étape 3 : Générer la heatmap avec PROC SGRENDER et paramètres dynamiques */
+/* Étape 2 : Générer la heatmap avec PROC SGRENDER et paramètres dynamiques */
 proc sgrender data=stat_test_welch template=heatmap_template;
   dynamic _X="segment_2" _Y="segment_1" _COLOR="test_probt";
 run;
