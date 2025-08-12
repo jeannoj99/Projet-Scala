@@ -1,0 +1,70 @@
+Sub ConcatenerFeuillesForcage()
+    Dim dossier As String
+    Dim fichier As String
+    Dim wbSource As Workbook
+    Dim wsSource As Worksheet
+    Dim wbDest As Workbook
+    Dim wsDest As Worksheet
+    Dim derniereLigneSrc As Long
+    Dim derniereLigneDest As Long
+    Dim cheminComplet As String
+    
+    ' Sélection du dossier contenant les fichiers
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        .Title = "Sélectionne le dossier contenant les fichiers Excel"
+        If .Show <> -1 Then Exit Sub
+        dossier = .SelectedItems(1) & "\"
+    End With
+    
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+    
+    ' Création du classeur de destination
+    Set wbDest = ThisWorkbook
+    On Error Resume Next
+    Set wsDest = wbDest.Sheets("Concat_Forçage")
+    If wsDest Is Nothing Then
+        Set wsDest = wbDest.Sheets.Add
+        wsDest.Name = "Concat_Forçage"
+    End If
+    wsDest.Cells.Clear
+    On Error GoTo 0
+    
+    ' Parcours des fichiers Excel dans le dossier
+    fichier = Dir(dossier & "*.xls*")
+    Do While fichier <> ""
+        cheminComplet = dossier & fichier
+        
+        ' Ignore le fichier en cours s'il est le même que le classeur de destination
+        If cheminComplet <> wbDest.FullName Then
+            Set wbSource = Workbooks.Open(cheminComplet, ReadOnly:=True)
+            
+            ' Cherche la feuille "forçage"
+            On Error Resume Next
+            Set wsSource = wbSource.Sheets("forçage")
+            If wsSource Is Nothing Then
+                Set wsSource = wbSource.Sheets("Forçage")
+            End If
+            On Error GoTo 0
+            
+            If Not wsSource Is Nothing Then
+                ' Trouve la dernière ligne utilisée
+                derniereLigneSrc = wsSource.Cells(wsSource.Rows.Count, 1).End(xlUp).Row
+                derniereLigneDest = wsDest.Cells(wsDest.Rows.Count, 1).End(xlUp).Row + 1
+                
+                ' Copie les données
+                wsSource.Range("A1:A" & derniereLigneSrc).EntireRow.Copy wsDest.Cells(derniereLigneDest, 1)
+            End If
+            
+            wbSource.Close SaveChanges:=False
+            Set wsSource = Nothing
+        End If
+        
+        fichier = Dir
+    Loop
+    
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
+    
+    MsgBox "Concaténation terminée !", vbInformation
+End Sub
