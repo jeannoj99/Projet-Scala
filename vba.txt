@@ -8,6 +8,7 @@ Sub ConcatenerFeuillesForcage()
     Dim derniereLigneSrc As Long
     Dim derniereLigneDest As Long
     Dim cheminComplet As String
+    Dim premierFichier As Boolean
     
     ' Sélection du dossier contenant les fichiers
     With Application.FileDialog(msoFileDialogFolderPicker)
@@ -19,7 +20,7 @@ Sub ConcatenerFeuillesForcage()
     Application.ScreenUpdating = False
     Application.EnableEvents = False
     
-    ' Création du classeur de destination
+    ' Création ou vidage de la feuille de destination
     Set wbDest = ThisWorkbook
     On Error Resume Next
     Set wsDest = wbDest.Sheets("Concat_Forçage")
@@ -30,34 +31,50 @@ Sub ConcatenerFeuillesForcage()
     wsDest.Cells.Clear
     On Error GoTo 0
     
+    ' Drapeau pour savoir si on traite le premier fichier
+    premierFichier = True
+    
     ' Parcours des fichiers Excel dans le dossier
     fichier = Dir(dossier & "*.xls*")
     Do While fichier <> ""
         cheminComplet = dossier & fichier
         
-        ' Ignore le fichier en cours s'il est le même que le classeur de destination
+        ' Ignore le fichier de destination
         If cheminComplet <> wbDest.FullName Then
             Set wbSource = Workbooks.Open(cheminComplet, ReadOnly:=True)
             
-            ' Cherche la feuille "forçage"
-            On Error Resume Next
-            Set wsSource = wbSource.Sheets("forçage")
-            If wsSource Is Nothing Then
-                Set wsSource = wbSource.Sheets("Forçage")
-            End If
-            On Error GoTo 0
+            ' Recherche de la feuille "forçage" (tolérance casse/accents)
+            Set wsSource = Nothing
+            Dim ws As Worksheet
+            For Each ws In wbSource.Sheets
+                If LCase(Replace(ws.Name, "ç", "c")) = "forcage" Then
+                    Set wsSource = ws
+                    Exit For
+                End If
+            Next ws
             
             If Not wsSource Is Nothing Then
-                ' Trouve la dernière ligne utilisée
+                ' Dernière ligne utilisée
                 derniereLigneSrc = wsSource.Cells(wsSource.Rows.Count, 1).End(xlUp).Row
+                
+                ' Ligne de départ selon si c'est le premier fichier ou pas
+                Dim ligneDepart As Long
+                If premierFichier Then
+                    ligneDepart = 1 ' On prend tout
+                    premierFichier = False
+                Else
+                    ligneDepart = 5 ' On saute les 4 premières lignes
+                End If
+                
+                ' Dernière ligne déjà occupée dans la feuille de destination
                 derniereLigneDest = wsDest.Cells(wsDest.Rows.Count, 1).End(xlUp).Row + 1
                 
-                ' Copie les données
-                wsSource.Range("A1:A" & derniereLigneSrc).EntireRow.Copy wsDest.Cells(derniereLigneDest, 1)
+                ' Copie des données
+                wsSource.Range("A" & ligneDepart & ":A" & derniereLigneSrc).EntireRow.Copy _
+                    wsDest.Cells(derniereLigneDest, 1)
             End If
             
             wbSource.Close SaveChanges:=False
-            Set wsSource = Nothing
         End If
         
         fichier = Dir
@@ -66,5 +83,5 @@ Sub ConcatenerFeuillesForcage()
     Application.ScreenUpdating = True
     Application.EnableEvents = True
     
-    MsgBox "Concaténation terminée !", vbInformation
+    MsgBox "Concaténation terminée avec en-têtes depuis le premier fichier !", vbInformation
 End Sub
